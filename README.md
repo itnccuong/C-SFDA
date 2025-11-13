@@ -146,3 +146,101 @@ If you find this work helpful to your own work, please consider citing us:
 }
 ```
 
+Expected folder structure for ./data/VISDA-C:
+
+  ./data/VISDA-C/
+  ├── train/                    # Source domain images (organized by class)
+  │   ├── aeroplane/
+  │   │   └── *.png
+  │   ├── bicycle/
+  │   │   └── *.png
+  │   └── ... (12 classes total)
+  │
+  ├── validation/               # Target domain images (organized by class)
+  │   ├── aeroplane/
+  │   │   └── *.png
+  │   ├── bicycle/
+  │   │   └── *.png
+  │   └── ... (12 classes total)
+  │
+  ├── train_list.txt           # Label file for training
+  └── validation_list.txt      # Label file for validation
+
+  Label file format:
+
+  Each .txt file contains lines like:
+  validation/aeroplane/image_0001.png 0
+  validation/aeroplane/image_0002.png 0
+  validation/bicycle/image_0001.png 1
+  validation/bicycle/image_0002.png 1
+  ...
+
+  How it works (from target_csfda.py:166-167 and image_list.py:48):
+
+  1. Label file path: image_root + "{domain}_list.txt" → ./data/VISDA-C/validation_list.txt
+  2. Image path: image_root + img_file → ./data/VISDA-C/validation/aeroplane/image_0001.png
+
+  So the label file stores relative paths from image_root, and the actual images are in subdirectories organized
+  by class name.
+
+Question 1: Do you need train_list.txt and train/ folder for Stage 2?
+
+  NO! When using a checkpoint for Stage 2 (train_source=false), you DON'T need:
+  - ❌ train/ folder
+  - ❌ train_list.txt
+
+  You ONLY need:
+  - ✅ validation/ folder (target domain images)
+  - ✅ validation_list.txt (target domain labels)
+  - ✅ Checkpoint file (pre-trained model from Stage 1)
+
+  The src_domain="train" is only used to construct the checkpoint filename, not to load training data!
+
+  ---
+  Question 2: How does the checkpoint system work?
+
+  Expected Checkpoint Structure:
+
+  From target_csfda.py:174-177:
+  checkpoint_path = os.path.join(
+      args.model_tta.src_log_dir,  # "./checkpoint/"
+      f"best_{args.data.src_domain}_{args.seed}.pth.tar"  # "best_train_2020.pth.tar"
+  )
+
+  Expected path: ./checkpoint/best_train_2020.pth.tar
+
+  Current Issue:
+
+  Your notebook uses:
+  - seed=2020
+  - src_log_dir="./checkpoint/"
+
+  But your checkpoint is at: ./checkpoint/VISDA-C/best_train_2022.pth.tar
+
+  Mismatches:
+  1. ❌ Seed: expects 2020, you have 2022
+  2. ❌ Location: expects ./checkpoint/, you have ./checkpoint/VISDA-C/
+
+  Solutions:
+
+  Option A: Fix the notebook to match your checkpoint
+  seed=2022
+  model_tta.src_log_dir="./checkpoint/VISDA-C/"
+
+  Option B: Move/rename the checkpoint
+  cp checkpoint/VISDA-C/best_train_2022.pth.tar checkpoint/best_train_2020.pth.tar
+
+  Option C: Create a symlink
+  ln -s VISDA-C/best_train_2022.pth.tar checkpoint/best_train_2020.pth.tar
+
+  ---
+  Summary:
+
+  | Scenario                  | train/ folder | train_list.txt | checkpoint | validation/ | validation_list.txt |
+  |---------------------------|---------------|----------------|------------|-------------|---------------------|
+  | Stage 1 (train source)    | ✅ Required    | ✅ Required     | ❌ Not used | ✅ For eval  | ✅ For eval
+      |
+  | Stage 2 (with checkpoint) | ❌ Not needed  | ❌ Not needed   | ✅ Required | ✅ Required  | ✅ Required
+      |
+
+  Want me to update the notebook to fix the checkpoint path issue?

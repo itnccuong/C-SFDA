@@ -199,7 +199,7 @@ def train_target_domain(args):
     train_transform = get_augmentation_versions(args)
     label_file  = os.path.join(args.data.image_root, f"{args.data.tgt_domain}_list.txt")
     val_dataset = ImageList(
-        image_root=args.data.image_root,
+        image_root=os.path.join(args.data.image_root, args.data.tgt_domain),
         label_file=label_file,
         transform =val_transform,
     )
