@@ -166,7 +166,7 @@ def train_target_domain(args):
         label_file = os.path.join(
             args.data.image_root, f"{args.data.tgt_domain}_list.txt"
         )
-        dummy_dataset = ImageList(args.data.image_root, label_file)
+        dummy_dataset = ImageList(os.path.join(args.data.image_root, args.data.tgt_domain), label_file)
         data_length   = len(dummy_dataset)
         args.learn.queue_size = data_length
         del dummy_dataset
@@ -220,7 +220,7 @@ def train_target_domain(args):
     ### Training data  (Is it domain by domain, look for online settings!)
     train_transform = get_augmentation_versions(args)
     train_dataset = ImageList(
-        image_root=args.data.image_root,
+        image_root=os.path.join(args.data.image_root, args.data.tgt_domain),
         label_file=label_file,                # Uses pseudo labels
         transform=train_transform,
         pseudo_item_list=None,
