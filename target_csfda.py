@@ -252,7 +252,7 @@ def train_target_domain(args):
     train_csfda(train_loader, val_loader, model, optimizer,  args)
 
     filename = f"checkpoint_{1:04d}_{args.data.src_domain}-{args.data.tgt_domain}-{args.sub_memo}_{args.seed}.pth.tar"
-    save_path = os.path.join('./checkpoints/', filename)
+    save_path = os.path.join('./checkpoint/', filename)
     save_checkpoint(model, optimizer, 1, save_path=save_path)
     logging.info(f"Saved checkpoint {save_path}")
 
@@ -443,7 +443,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
             if not math.isnan(accuracy):
                 accuracy_tot += accuracy
                 total_acc += 1
-            accuracies.append(accuracy_tot/total_acc)
+            accuracies.append((accuracy_tot/total_acc).cpu().item())
 
 
                 ### Contrastive Learning ### 
@@ -508,7 +508,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
             ## Evaluate the model ##
         acc_per_class = eval_and_label_dataset(val_loader, model, args)
         model.train()
-        acc_classes.append(acc_per_class.mean())        
+        acc_classes.append(acc_per_class.mean().item() if torch.is_tensor(acc_per_class.mean()) else acc_per_class.mean())
 
 
 
