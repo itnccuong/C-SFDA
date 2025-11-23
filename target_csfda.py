@@ -34,6 +34,7 @@ from utils import (
     AverageMeter,
     CustomDistributedDataParallel,
     ProgressMeter,
+    plot_training_stats,
 )
 
 
@@ -306,6 +307,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
     conf_thress = torch.zeros(70000) 
     acc_classes = []
     accuracies  = []
+    per_class_accs = []
     sel_Samples = []
     unsel_samples = []
     missed_images =  {'img_path': [], 'labels': []}
@@ -501,6 +503,22 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
 
             missed_images['labels'].append(labels_check[ind_remove])
 
+            if is_master(args):
+                # Save checkpoint for each batch (replace existing)
+                filename_latest = f"checkpoint_latest_{args.data.src_domain}-{args.data.tgt_domain}.pth.tar"
+                save_path_latest = os.path.join('./checkpoint/', filename_latest)
+                save_checkpoint(model, optimizer, epoch, save_path=save_path_latest)
+
+                # Plot training stats
+                current_stats = {
+                    'pseudo_label_acc': accuracies,
+                    'ce_loss': loss_classes[:ind+1].cpu().numpy(),
+                    'con_loss': con_losses[:ind+1].cpu().numpy(),
+                    'prop_loss': unsupervised_losses[:ind+1].cpu().numpy(),
+                    'val_acc_mean': acc_classes,
+                    'val_acc_per_class': per_class_accs,
+                }
+                plot_training_stats(current_stats, save_path="training_process.png")
 
             np.savez("training_stats.npz", pseudo_label_acc = accuracies, acc_class= acc_classes, conf = conf_thress.cpu().numpy(), unc = uncertainty_thresholds.cpu().numpy(), labeled_loss_coeff = loss_coefs.cpu().numpy(), con_coeff = con_coeffs, ce_loss = loss_classes.cpu().numpy(), con_loss = con_losses.cpu().numpy(), prop_loss = unsupervised_losses.cpu().numpy(), sel_Samples = sel_Samples , unsel_samples = unsel_samples)
             ind += 1 
@@ -509,6 +527,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
         acc_per_class = eval_and_label_dataset(val_loader, model, args)
         model.train()
         acc_classes.append(acc_per_class.mean().item() if torch.is_tensor(acc_per_class.mean()) else acc_per_class.mean())
+        per_class_accs.append(acc_per_class)
 
 
 
