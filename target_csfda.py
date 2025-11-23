@@ -303,12 +303,20 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
     loss_coefs   = torch.zeros(70000) 
     con_losses   = torch.zeros(70000) 
     unsupervised_losses    = torch.zeros(70000) 
+    total_losses = torch.zeros(70000) # New: Track total loss
     uncertainty_thresholds = torch.zeros(70000) 
     conf_thress = torch.zeros(70000) 
     acc_classes = []
     accuracies  = []
+    batch_accuracies = [] # New: Track overall batch accuracy
     per_class_accs = []
     sel_Samples = []
+    
+    # Accumulators for running averages
+    accuracy_tot = 0
+    total_acc = 0
+    batch_acc_tot = 0
+    batch_total_acc = 0
     unsel_samples = []
     missed_images =  {'img_path': [], 'labels': []}
     ind = 0
@@ -441,11 +449,19 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
 
 
                 ### Calculate Pseudo-Label Accuracy Accuracy ###
+            # Accuracy of SELECTED samples
             accuracy = (pseudo_labels_w[ind_keep] == labels_check[ind_keep]).float().mean() * 100
             if not math.isnan(accuracy):
                 accuracy_tot += accuracy
                 total_acc += 1
             accuracies.append((accuracy_tot/total_acc).cpu().item())
+
+            # Accuracy of ALL samples in batch
+            acc_all = (pseudo_labels_w == labels_check).float().mean() * 100
+            if not math.isnan(acc_all):
+                batch_acc_tot += acc_all
+                batch_total_acc += 1
+            batch_accuracies.append((batch_acc_tot/batch_total_acc).cpu().item())
 
 
                 ### Contrastive Learning ### 
@@ -490,6 +506,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
             loss_coefs[ind] = loss_coef
             con_losses[ind]  = loss_contrast.item()
             unsupervised_losses[ind] = loss_cls_rem.item()
+            total_losses[ind] = loss.item() # New: Track total loss
             uncertainty_thresholds[ind] = uncer_th
             conf_thress[ind] = conf_th
             sel_Samples.append(len(ind_keep))
@@ -512,9 +529,11 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
                 # Plot training stats
                 current_stats = {
                     'pseudo_label_acc': accuracies,
+                    'batch_acc': batch_accuracies,
                     'ce_loss': loss_classes[:ind+1].cpu().numpy(),
                     'con_loss': con_losses[:ind+1].cpu().numpy(),
                     'prop_loss': unsupervised_losses[:ind+1].cpu().numpy(),
+                    'total_loss': total_losses[:ind+1].cpu().numpy(), # New: Pass total loss
                     'val_acc_mean': acc_classes,
                     'val_acc_per_class': per_class_accs,
                 }

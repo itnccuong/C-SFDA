@@ -360,6 +360,8 @@ def plot_training_stats(stats, save_path="training_process.png"):
         plt.plot(stats['con_loss'], label='Contrastive Loss', alpha=0.6, linewidth=0.5)
     if 'prop_loss' in stats and len(stats['prop_loss']) > 0:
         plt.plot(stats['prop_loss'], label='Propagation Loss', alpha=0.6, linewidth=0.5)
+    if 'total_loss' in stats and len(stats['total_loss']) > 0:
+        plt.plot(stats['total_loss'], label='Total Loss', alpha=0.8, linewidth=0.8, color='black', linestyle='--')
     plt.title('Training Losses (Batch-wise)')
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
@@ -368,12 +370,19 @@ def plot_training_stats(stats, save_path="training_process.png"):
 
     # 2. Pseudo Label Accuracy (Batch-wise)
     plt.subplot(2, 2, 2)
+    has_acc_plot = False
     if 'pseudo_label_acc' in stats and len(stats['pseudo_label_acc']) > 0:
-        plt.plot(stats['pseudo_label_acc'], label='Pseudo Label Acc', color='green', alpha=0.8)
-    plt.title('Pseudo Label Accuracy (Batch-wise)')
+        plt.plot(stats['pseudo_label_acc'], label='Selected PL Acc (High Conf)', color='green', alpha=0.8)
+        has_acc_plot = True
+    if 'batch_acc' in stats and len(stats['batch_acc']) > 0:
+        plt.plot(stats['batch_acc'], label='Overall Batch Acc', color='orange', alpha=0.8, linestyle='--')
+        has_acc_plot = True
+        
+    plt.title('Pseudo Label Accuracy (Running Avg)')
     plt.xlabel('Iteration')
     plt.ylabel('Accuracy (%)')
-    plt.legend()
+    if has_acc_plot:
+        plt.legend()
     plt.grid(True, alpha=0.3)
 
     # 3. Validation Mean Accuracy (Epoch-wise)
@@ -381,32 +390,37 @@ def plot_training_stats(stats, save_path="training_process.png"):
     if 'val_acc_mean' in stats and len(stats['val_acc_mean']) > 0:
         plt.plot(range(1, len(stats['val_acc_mean']) + 1), stats['val_acc_mean'], 'o-', label='Val Mean Acc', color='blue')
         plt.title(f'Validation Mean Accuracy (Last: {stats["val_acc_mean"][-1]:.2f}%)')
+        plt.legend()
     else:
         plt.title('Validation Mean Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
-    plt.legend()
     plt.grid(True, alpha=0.3)
 
-    # 4. Validation Per-Class Accuracy (Epoch-wise Heatmap)
+    # 4. Validation Per-Class Accuracy (Epoch-wise)
     plt.subplot(2, 2, 4)
     if 'val_acc_per_class' in stats and len(stats['val_acc_per_class']) > 0:
         data = np.array(stats['val_acc_per_class'])
         # data shape: (epochs, classes)
-        # We want X=Epochs, Y=Classes. So transpose? 
-        # Usually heatmap: rows=classes, cols=epochs is easier to read if classes are many.
         
-        if data.ndim == 2:
+        # If number of classes is small (e.g. VisDA-C has 12), use line plot
+        if data.shape[1] <= 20:
+            epochs = range(1, data.shape[0] + 1)
+            for i in range(data.shape[1]):
+                plt.plot(epochs, data[:, i], label=f'Class {i}', alpha=0.7, linewidth=1)
+            plt.title('Per-Class Validation Accuracy')
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy (%)')
+            # Put legend outside if possible or just let it be
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small')
+        else:
+            # Use heatmap for many classes
             data_t = data.T # (classes, epochs)
             im = plt.imshow(data_t, aspect='auto', cmap='viridis', interpolation='nearest', vmin=0, vmax=100)
             plt.colorbar(im, label='Accuracy (%)')
             plt.ylabel('Class Index')
             plt.xlabel('Epoch')
             plt.title('Per-Class Validation Accuracy')
-            
-            # If few classes, annotate?
-            if data_t.shape[0] <= 20:
-                plt.yticks(range(data_t.shape[0]))
             
     else:
         plt.title('Per-Class Validation Accuracy')
