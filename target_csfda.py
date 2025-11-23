@@ -298,13 +298,13 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
     class_features = torch.zeros((mem_size, num_class, 256))
     probs_class    = torch.zeros((mem_size, num_class, num_class))
 
-    con_coeffs   = np.zeros(70000) 
-    loss_classes = torch.zeros(70000) 
-    loss_coefs   = torch.zeros(70000) 
-    con_losses   = torch.zeros(70000) 
-    unsupervised_losses    = torch.zeros(70000) 
-    uncertainty_thresholds = torch.zeros(70000) 
-    conf_thress = torch.zeros(70000) 
+    con_coeffs   = np.zeros(40000) 
+    loss_classes = torch.zeros(40000) 
+    loss_coefs   = torch.zeros(40000) 
+    con_losses   = torch.zeros(40000) 
+    unsupervised_losses    = torch.zeros(40000) 
+    uncertainty_thresholds = torch.zeros(40000) 
+    conf_thress = torch.zeros(40000) 
     acc_classes = []
     accuracies  = []
     per_class_accs = []
