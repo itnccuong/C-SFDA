@@ -243,6 +243,19 @@ def train_target_domain(args):
     ### Define loss function (criterion) and optimizer   
     optimizer = get_target_optimizer(model, args)
     logging.info("4 -- Created Optimizer")
+
+    # Resume from checkpoint if provided
+    if args.resume:
+        if os.path.isfile(args.resume):
+            logging.info(f"=> loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume, map_location='cuda')
+            args.learn.start_epoch = checkpoint['epoch'] + 1
+            model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
+        else:
+            logging.info(f"=> no checkpoint found at '{args.resume}'")
+
     logging.info("Start Training ...")
 
     ### Main Training Part    
@@ -322,6 +335,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
     ind = 0
 
     for epoch in range(args.learn.start_epoch, args.learn.epochs):
+        progress.prefix = f"Epoch: [{epoch}]"
         for i, data in enumerate(train_loader):
             
             ## Unpack and move data
@@ -520,12 +534,7 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
 
             missed_images['labels'].append(labels_check[ind_remove])
 
-            if is_master(args):
-                # Save checkpoint for each batch (replace existing)
-                filename_latest = f"checkpoint_latest_{args.data.src_domain}-{args.data.tgt_domain}.pth.tar"
-                save_path_latest = os.path.join('./checkpoint/', filename_latest)
-                save_checkpoint(model, optimizer, epoch, save_path=save_path_latest)
-
+            if is_master(args) and (ind % 50 == 0):
                 # Plot training stats
                 current_stats = {
                     'pseudo_label_acc': accuracies,
@@ -539,7 +548,9 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
                 }
                 plot_training_stats(current_stats, save_path="training_process.png")
 
-            np.savez("training_stats.npz", pseudo_label_acc = accuracies, acc_class= acc_classes, conf = conf_thress.cpu().numpy(), unc = uncertainty_thresholds.cpu().numpy(), labeled_loss_coeff = loss_coefs.cpu().numpy(), con_coeff = con_coeffs, ce_loss = loss_classes.cpu().numpy(), con_loss = con_losses.cpu().numpy(), prop_loss = unsupervised_losses.cpu().numpy(), sel_Samples = sel_Samples , unsel_samples = unsel_samples)
+                # Save stats only every 50 iterations to save I/O
+                np.savez("training_stats.npz", pseudo_label_acc = accuracies, acc_class= acc_classes, conf = conf_thress.cpu().numpy(), unc = uncertainty_thresholds.cpu().numpy(), labeled_loss_coeff = loss_coefs.cpu().numpy(), con_coeff = con_coeffs, ce_loss = loss_classes.cpu().numpy(), con_loss = con_losses.cpu().numpy(), prop_loss = unsupervised_losses.cpu().numpy(), sel_Samples = sel_Samples , unsel_samples = unsel_samples)
+
             ind += 1 
 
             ## Evaluate the model ##
@@ -547,6 +558,12 @@ def train_csfda(train_loader, val_loader, model, optimizer, args):
         model.train()
         acc_classes.append(acc_per_class.mean().item() if torch.is_tensor(acc_per_class.mean()) else acc_per_class.mean())
         per_class_accs.append(acc_per_class)
+
+        if is_master(args):
+            # Save checkpoint for each epoch (replace existing)
+            filename_latest = f"checkpoint_latest_{args.data.src_domain}-{args.data.tgt_domain}.pth.tar"
+            save_path_latest = os.path.join('./checkpoint/', filename_latest)
+            save_checkpoint(model, optimizer, epoch, save_path=save_path_latest)
 
 
 

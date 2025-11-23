@@ -16,6 +16,7 @@ memo: test
 sub_memo: null
 project: null
 use_wandb: true
+resume: null
 
 # Modular settings
 defaults:
